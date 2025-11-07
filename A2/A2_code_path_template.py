@@ -95,51 +95,74 @@ def define_running_cost_and_dynamics(opti, X, U, S, W, N, dt, x_init,
                                      c_path, r_path, w_v, w_a, w_w,
                                      tau_min, tau_max):
     
+    # PATH CONSTRAINTS
     # TODO: Constrain the initial state X[0] to be equal to the initial condition x_init
-    
+    opti.subject_to(X[0]==x_init)
 
     # TODO: Initialize the path variable S[0] to 0.0
-    
+    opti.subject_to(S[0]==0.0)
 
     # TODO: Constrain the final path variable S[-1] to be 1.0
+    opti.subject_to(S[-1]==1.0)
     #
 
     cost = 0.0
     for k in range(N):
         # TODO: Compute the end-effector position using forward kinematics
-        
+        q_k=X[k][:nq]
+        ee_pos=fk(q_k)
 
         # TODO: Constrain ee_pos to lie on the desired path in x, y, z
+        p_x=c_path[0]+r_path*cs.cos(2*np.pi*S[k])
+        p_y=c_path[1]+r_path*0.5*cs.sin(4*np.pi*S[k])
+        p_z=c_path[2]
+        p_k=cs.vertcat(p_x,p_y,p_z)
        
+        opti.subject_to(ee_pos==p_k)
 
         # TODO: Add velocity tracking cost term
-        
+        dq_k=X[k][nq:]
+        cost+=w_v*cs.sumsqr(dq_k)
 
         # TODO: Add actuation effort cost term
-        
+        u_k=U[k]
+        cost+=w_a*cs.sumsqr(u_k)
 
         # TODO: Add path progression speed cost term
-        
+        w_k=W[k]
+        cost+=w_w*cs.sumsqr(w_k)
 
         # TODO: Add discrete-time dynamics constraint
-        
+        # X[k+1] = X[k] + dt * f(X[k], U[k])
+        # f(stato, controllo) -> f( (q, dq), u ) -> (dq, u)
+        opti.subject_to(X[k+1]==X[k]+dt*f(X[k],U[k]))
 
         # TODO: Add path variable dynamics constraint
-        
+        # s_k+1 = s_k + dt * w_k
+        opti.subject_to(S[k+1]==S[k]+dt*W[k])
 
         # TODO: Constrain the joint torques to remain within [tau_min, tau_max]
+        tau_k=inv_dyn(X[k],U[k])
+        opti.subject_to(opti.bounded(tau_min,tau_k,tau_max))
         
         
     return cost
 
-def define_terminal_cost_and_constraints(opti, X, S, c_path, r_path, w_final):
+def define_terminal_cost_and_constraints(opti, X, S, x_init, c_path, r_path, w_final):
     # TODO: Compute the end-effector position at the final state
-    
+    q_N=X[-1][:nq]
+    ee_pos_N=fk(q_N)
 
     # TODO: Constrain ee_pos to lie on the desired path in x, y, z at the end
-
+    p_x=c_path[0]+r_path*cs.cos(2*np.pi*S[-1])
+    p_y=c_path[1]+r_path*0.5*cs.sin(4*np.pi*S[-1])
+    p_z=c_path[2]
+    p_N=cs.vertcat(p_x,p_y,p_z)
+       
+    opti.subject_to(ee_pos_N==p_N)
 
     cost = 0
+    cost += w_final * cs.sumsqr(X[-1] - x_init)
     return cost
 
 
@@ -151,7 +174,7 @@ def create_and_solve_ocp(N, nx, nq, lbx, ubx, dt, x_init,
     running_cost = define_running_cost_and_dynamics(opti, X, U, S, W, N, dt, x_init,
                                                     c_path, r_path, w_v, w_a, w_w,
                                                     tau_min, tau_max)
-    terminal_cost = define_terminal_cost_and_constraints(opti, X, S, c_path, r_path, w_final)
+    terminal_cost = define_terminal_cost_and_constraints(opti, X, S, x_init,c_path, r_path, w_final)
     opti.minimize(running_cost + terminal_cost)
 
     opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.tol": 1e-4}
@@ -231,6 +254,7 @@ if __name__ == "__main__":
     plt.plot([tt[0], tt[-1]], [0, 1], ':', label='straight line', alpha=0.7)
     plt.plot(tt, s_sol, label='s')
     plt.xlabel('Time [s]')
+    plt.title('Evolution of s')
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -265,13 +289,17 @@ if __name__ == "__main__":
         plt.plot([tt[0], tt[-1]], [q_sol[i,0], q_sol[i,0]], ':', label='straight line', alpha=0.7)
         plt.plot(tt, q_sol[i,:].T, label=f'q {i}', alpha=0.7)
     plt.xlabel('Time [s]')
-    plt.ylabel('Joint [rad/s]')
+    plt.ylabel('Joint [rad]')
     plt.legend()
     plt.grid(True)
 
+    prova1=np.ones(N)*max(tau_max)
+    prova2=np.ones(N)*min(tau_min)
     plt.figure(figsize=(10, 4))
     for i in range(tau.shape[0]):
         plt.plot(tt[:-1], tau[i,:].T, label=f'tau {i}', alpha=0.7)
+    plt.plot(tt[:-1],prova1, ':', label='tau_max' )
+    plt.plot(tt[:-1],prova2, ':', label='tau_min' )
     plt.xlabel('Time [s]')
     plt.ylabel('Joint torque [Nm]')
     plt.legend()
@@ -280,6 +308,7 @@ if __name__ == "__main__":
     plt.figure(figsize=(10, 4))
     plt.plot(tt[:-1], w_sol.T, label=f'w', alpha=0.7)
     plt.xlabel('Time [s]')
+    plt.title('Evolution of w')
     plt.legend()
     plt.grid(True)
     plt.show()
