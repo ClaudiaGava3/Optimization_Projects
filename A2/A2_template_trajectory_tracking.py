@@ -151,6 +151,9 @@ def define_running_cost_and_dynamics(opti, X, U, N, dt, x_init,
         # TODO: Constrain the joint torques to remain within [tau_min, tau_max]
         tau_k=inv_dyn(X[k],U[k])
         opti.subject_to(opti.bounded(tau_min,tau_k,tau_max))
+
+        # Aggiunto costo sul tempo
+        cost += (10**-1) * (dt**2)
         
         
     return cost
@@ -182,12 +185,18 @@ def define_terminal_cost_and_constraints(opti, X, w_p, x_init, c_path, r_path, w
 
 
 
-def create_and_solve_ocp(N, nx, nq, lbx, ubx, dt, x_init,
+def create_and_solve_ocp(N, nx, nq, lbx, ubx,
+                         # dt,
+                         x_init,
                          c_path, r_path, w_v, w_a, w_w, w_final, w_p,
                          tau_min, tau_max, p_ref):
     #opti, X, U, S, W = create_decision_variables(N, nx, nq, lbx, ubx) #parte 1,2
     opti, X, U = create_decision_variables(N, nx, nq, lbx, ubx) #parte 3
 
+    # aggiunta per ottimizzazione tempi
+    dt = opti.variable(1)
+    opti.subject_to(opti.bounded(0.001, dt, 0.1))
+    opti.set_initial(dt, 0.02) # Aiuta il solver dandogli un punto di partenza
 
     running_cost = define_running_cost_and_dynamics(opti, X, U, N, dt, x_init,
                                                     c_path, r_path, w_v, w_a,w_p,
@@ -200,12 +209,19 @@ def create_and_solve_ocp(N, nx, nq, lbx, ubx, dt, x_init,
     opti.minimize(running_cost + terminal_cost)
 
     opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.tol": 1e-4}
+
     opti.solver("ipopt", opts)
 
     t0 = time.time()
     sol = opti.solve()
+
+    # aggiunta per ottimizzazione tempi
+    dt_sol = sol.value(dt)
+    print(f"Optimal dt: {dt_sol:.4f}s")
+    print(f"Total time T: {N * dt_sol:.2f}s")
+
     print(f"Solver time: {time.time() - t0:.2f}s")
-    return sol, X, U#, S, W
+    return sol, X, U, dt_sol#, S, W
 
 
 def extract_solution(sol, X, U, p_ref): #per parte 3 ho rimosso S e W come var. e ho messo p_ref
@@ -261,7 +277,12 @@ if __name__ == "__main__":
     print("Plotting reference infinity curve...")
     plot_infinity(0, 1)
 
-    log_w_v, log_w_a, log_w_w, log_w_final = -3, -3, -2, 0
+    #default case
+    #log_w_v, log_w_a, log_w_w, log_w_final = -3, -3, -2, 0
+
+    #time optimization
+    log_w_v, log_w_a, log_w_w, log_w_final = -6, -6, -6, -6
+
     log_w_p = 2 #Log of trajectory tracking cost 
 
     # REF TRAJECTORY PER PARTE 3
@@ -274,8 +295,10 @@ if __name__ == "__main__":
         p_ref[2, k] = c_path[2]
 
 
-    sol, X, U = create_and_solve_ocp( # ho tolto S e W dalla restituzione
-        N, nx, nq, lbx, ubx, dt, x_init, c_path, r_path,
+    sol, X, U, dt_sol = create_and_solve_ocp( # ho tolto S e W dalla restituzione
+        N, nx, nq, lbx, ubx,
+        # dt,
+        x_init, c_path, r_path,
         10**log_w_v, 10**log_w_a, 10**log_w_w, 10**log_w_final, 10**log_w_p,
         tau_min, tau_max, p_ref
     )
@@ -289,7 +312,8 @@ if __name__ == "__main__":
     # Plot results
 
     # TOLGO I PLOT DI s E w NELLA PARTE 3 PERCHè NON MI INTERESSANO PIù
-    tt = np.linspace(0, (N + 1) * dt, N + 1)
+    # tt = np.linspace(0, (N + 1) * dt, N + 1)
+    tt = np.linspace(0, (N + 1) * dt_sol, N + 1) #per ottimizzazione tempi
     plt.figure(figsize=(10, 4))
     plt.plot([tt[0], tt[-1]], [0, 1], ':', label='straight line', alpha=0.7)
     plt.plot(tt, s_ref, label='s')
