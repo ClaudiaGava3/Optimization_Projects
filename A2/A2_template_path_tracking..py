@@ -145,6 +145,9 @@ def define_running_cost_and_dynamics(opti, X, U, S, W, N, dt, x_init,
         # TODO: Constrain the joint torques to remain within [tau_min, tau_max]
         tau_k=inv_dyn(X[k],U[k])
         opti.subject_to(opti.bounded(tau_min,tau_k,tau_max))
+
+        # Aggiunto costo sul tempo
+        cost += (10**-1) * (dt**2)
         
         
     return cost
@@ -176,6 +179,11 @@ def create_and_solve_ocp(N, nx, nq, lbx, ubx,
                          tau_min, tau_max):
     opti, X, U, S, W = create_decision_variables(N, nx, nq, lbx, ubx) 
 
+    # aggiunta per ottimizzazione tempi
+    dt = opti.variable(1)
+    opti.subject_to(opti.bounded(0.001, dt, 0.1))
+    #opti.set_initial(dt, 0.02) # Aiuta il solver dandogli un punto di partenza
+
     running_cost = define_running_cost_and_dynamics(opti, X, U, S, W, N, dt, x_init,
                                                     c_path, r_path, w_v, w_a, w_w, w_p,
                                                     tau_min, tau_max)
@@ -184,13 +192,23 @@ def create_and_solve_ocp(N, nx, nq, lbx, ubx,
 
     opti.minimize(running_cost + terminal_cost)
 
-    opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.tol": 1e-4}
+    #opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.tol": 1e-4}
+    #versione modificata per ottimizzazione tempi
+    opts = {"ipopt.print_level": 0, "print_time": 0, "ipopt.tol": 1e-4, 
+        "ipopt.hessian_approximation": "limited-memory"}
+
     opti.solver("ipopt", opts)
 
     t0 = time.time()
     sol = opti.solve()
+
+    # aggiunta per ottimizzazione tempi
+    dt_sol = sol.value(dt)
+    print(f"Optimal dt: {dt_sol:.4f}s")
+    print(f"Total time T: {N * dt_sol:.2f}s")
+
     print(f"Solver time: {time.time() - t0:.2f}s")
-    return sol, X, U, S, W
+    return sol, X, U, S, W, dt_sol
 
 
 def extract_solution(sol, X, U, S, W):
@@ -254,7 +272,7 @@ if __name__ == "__main__":
     log_w_p = 2 #Log of trajectory tracking cost 
 
    
-    sol, X, U, S, W = create_and_solve_ocp( # ho tolto dt per l'ottimizzazione di tempo
+    sol, X, U, S, W, dt_sol = create_and_solve_ocp( # ho tolto dt per l'ottimizzazione di tempo
         N, nx, nq, lbx, ubx, #dt
             x_init, c_path, r_path,
         10**log_w_v, 10**log_w_a, 10**log_w_w, 10**log_w_final, 10**log_w_p,
@@ -266,9 +284,10 @@ if __name__ == "__main__":
     for i in range(3):
         display_motion(q_sol, ee_des)
 
-    # Plot results
 
-    tt = np.linspace(0, (N + 1) * dt, N + 1)
+    # Plot results
+    # tt = np.linspace(0, (N + 1) * dt, N + 1)
+    tt = np.linspace(0, (N + 1) * dt_sol, N + 1) #per ottimizzazione tempi
     plt.figure(figsize=(10, 4))
     plt.plot([tt[0], tt[-1]], [0, 1], ':', label='straight line', alpha=0.7)
     plt.plot(tt, s_sol, label='s')
