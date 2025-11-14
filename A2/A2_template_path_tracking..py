@@ -123,15 +123,15 @@ def define_running_cost_and_dynamics(opti, X, U, S, W, N, dt, x_init,
        
         # TODO: Add velocity tracking cost term
         dq_k=X[k][nq:]
-        cost+=w_v*cs.sumsqr(dq_k)
+        cost+=w_v*cs.sumsqr(dq_k)*dt
 
         # TODO: Add actuation effort cost term
         u_k=U[k]
-        cost+=w_a*cs.sumsqr(u_k)
+        cost+=w_a*cs.sumsqr(u_k)*dt
 
         # TODO: Add path progression speed cost term
         w_k=W[k]
-        cost+=w_w*cs.sumsqr(w_k)
+        cost+=w_w*cs.sumsqr(w_k)*dt
 
         # TODO: Add discrete-time dynamics constraint
         # X[k+1] = X[k] + dt * f(X[k], U[k])

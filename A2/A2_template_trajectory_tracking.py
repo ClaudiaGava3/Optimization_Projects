@@ -34,8 +34,8 @@ joints_name_list = [s for s in robot.model.names[1:]]
 nq = len(joints_name_list)
 nx = 2 * nq
 
-dt = 0.02
-N = 100
+#dt = 0.02
+N = 500
 q0 = np.zeros(nq)
 dq0 = np.zeros(nq)
 x_init = np.concatenate([q0, dq0])
@@ -89,6 +89,7 @@ def create_decision_variables(N, nx, nu, lbx, ubx):
     for _ in range(N):
         U += [opti.variable(nu)]
         # W += [opti.variable(1)]  #tolgo per punto 3
+
     return opti, X, U# , S, W #parte 3
 
 
@@ -124,16 +125,16 @@ def define_running_cost_and_dynamics(opti, X, U, N, dt, x_init,
 
         #costo di tracking
         p_ref_k = p_ref[:, k]
-        cost += w_p * cs.sumsqr(ee_pos - p_ref_k) #parte 3
+        cost += w_p * cs.sumsqr(ee_pos - p_ref_k)*dt #parte 3
         #opti.subject_to(ee_pos==p_ref_k) #prova constraint
         
         # TODO: Add velocity tracking cost term
         dq_k=X[k][nq:]
-        cost+=w_v*cs.sumsqr(dq_k)
+        cost+=w_v*cs.sumsqr(dq_k)*dt
 
         # TODO: Add actuation effort cost term
         u_k=U[k]
-        cost+=w_a*cs.sumsqr(u_k)
+        cost+=w_a*cs.sumsqr(u_k)*dt
 
         # TODO: Add path progression speed cost term
         #w_k=W[k]
@@ -195,8 +196,9 @@ def create_and_solve_ocp(N, nx, nq, lbx, ubx,
 
     # aggiunta per ottimizzazione tempi
     dt = opti.variable(1)
-    opti.subject_to(opti.bounded(0.001, dt, 0.1))
+    opti.subject_to(opti.bounded(0.002, dt, 0.1))
     opti.set_initial(dt, 0.02) # Aiuta il solver dandogli un punto di partenza
+   
 
     running_cost = define_running_cost_and_dynamics(opti, X, U, N, dt, x_init,
                                                     c_path, r_path, w_v, w_a,w_p,
@@ -260,15 +262,15 @@ REF_SPHERE_RADIUS = 0.02
 EE_REF_SPHERE_COLOR = np.array([1, 0, 0, .5])
 
 
-def display_motion(q_traj, ee_des_traj):
+def display_motion(q_traj, ee_des_traj, dt_sol):
     for i in range(N + 1):
         t0 = time.time()
         simu.display(q_traj[:, i])
         addViewerSphere(r.viz, f'world/ee_ref_{i}', REF_SPHERE_RADIUS, EE_REF_SPHERE_COLOR)
         applyViewerConfiguration(r.viz, f'world/ee_ref_{i}', ee_des_traj[:, i].tolist() + [0, 0, 0, 1.])
         t1 = time.time()
-        if(t1-t0 < dt):
-            sleep(dt - (t1-t0))
+        if(t1-t0 < dt_sol):
+            sleep(dt_sol - (t1-t0))
 
 
 
@@ -281,7 +283,7 @@ if __name__ == "__main__":
     #log_w_v, log_w_a, log_w_w, log_w_final = -3, -3, -2, 0
 
     #time optimization
-    log_w_v, log_w_a, log_w_w, log_w_final = -6, -6, -6, -6
+    log_w_v, log_w_a, log_w_w, log_w_final = -6, -6, -6, 10
 
     log_w_p = 2 #Log of trajectory tracking cost 
 
@@ -307,7 +309,7 @@ if __name__ == "__main__":
 
     print("Displaying robot motion...")
     for i in range(3):
-        display_motion(q_sol, ee_des)
+        display_motion(q_sol, ee_des, dt_sol)
 
     # Plot results
 
