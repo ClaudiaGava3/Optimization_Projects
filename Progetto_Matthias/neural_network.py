@@ -1,0 +1,59 @@
+import torch
+import torch.nn as nn
+from casadi import MX, Function
+import l4casadi as l4c
+
+class NeuralNetwork(nn.Module):
+    """ A simple feedforward neural network. """
+    def __init__(self, input_size, hidden_size, output_size, activation=nn.Tanh(), ub=None):
+        super().__init__()
+        self.linear_stack = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            activation,
+            nn.Linear(hidden_size, hidden_size),
+            activation,
+            nn.Linear(hidden_size, output_size),
+            activation,
+        )
+        self.ub = ub if ub is not None else 1 # upper bound of the output layer
+        self.initialize_weights()
+
+    def forward(self, x):
+        out = self.linear_stack(x) * self.ub
+        return out
+   
+    def initialize_weights(self):
+        for layer in self.linear_stack:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_normal_(layer.weight)
+                nn.init.zeros_(layer.bias) 
+
+    def create_casadi_function(self, robot_name, NN_DIR, input_size, load_weights):
+        # if load_weights is True, we load the neural-network weights from a ".pt" file
+        if(load_weights):
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            nn_name = f'{NN_DIR}model.pt'
+            # Carichiamo i pesi (aggiunto weights_only=False per evitare il warning/errore su versioni recenti)
+            try:
+                nn_data = torch.load(nn_name, map_location=device, weights_only=False)
+            except TypeError:
+                # Fallback per versioni vecchie di torch che non hanno weights_only
+                nn_data = torch.load(nn_name, map_location=device)
+            
+            self.load_state_dict(nn_data['model'])
+
+        # Creiamo il simbolo CasADi (vettore colonna Nx1)
+        state = MX.sym("x", input_size)        
+        
+        self.l4c_model = l4c.L4CasADi(self,
+                                      device='cuda' if torch.cuda.is_available() else 'cpu',
+                                      name=f'{robot_name}_model',
+                                      build_dir=f'{NN_DIR}nn_{robot_name}')
+
+        # --- FIX IMPORTANTE ---
+        # Trasponiamo lo stato (state.T) perché PyTorch vuole (Batch, Features)
+        # CasADi fornisce (Features, 1), quindi dobbiamo ruotarlo.
+        self.nn_model = self.l4c_model(state.T)
+        
+        # La funzione CasADi finale accetta comunque lo stato normale (state) come input
+        self.nn_func = Function('nn_func', [state], [self.nn_model])
