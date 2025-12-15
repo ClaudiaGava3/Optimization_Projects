@@ -1,95 +1,146 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mpc import run_mpc_simulation
+from mpc_funzione import run_mpc_simulation
+
+# --- IMPORTA IL GENERATORE RANDOM ---
+try:
+    from random_generator import generate_random_initial_states
+    from pendolum_model import PendulumModel
+    from doublependolum_model import DoublePendulumModel
+except ImportError:
+    print("ERRORE: random_generator.py o modelli non trovati.")
+    exit()
 
 # --- CONFIGURAZIONE ---
-ROBOT_TYPE = "single"  # Cambia in "double" se vuoi testare il doppio pendolo
-N_TRIALS = 20          # Numero prove
-M_SHORT = 20           # Orizzonte Corto (M)
-N_LONG = 100           # Orizzonte Lungo (N)
-SIM_STEPS = 100        # Durata simulazione
+ROBOT_TYPE = "single"  # "single" o "double"
+N_TRIALS = 20          # Numero prove random (partiamo con 20 per velocità)
+M_SHORT = 20           # Orizzonte Corto (quello che hai usato con successo)
+N_LONG = 100           # Orizzonte Lungo (Benchmark)
+SIM_STEPS = 150        # Durata simulazione (step) per dare tempo di arrivare
 
 print(f"--- INIZIO COMPARAZIONE (Robot: {ROBOT_TYPE}) ---")
+print(f"Horizon Short: {M_SHORT}, Horizon Long: {N_LONG}")
+print(f"Trials: {N_TRIALS}")
 
-# A: corto senza rete
-# B: corto con rete
-# C: lungo senza rete
+# Setup robot temporaneo per generare stati
+if ROBOT_TYPE == "single": temp_robot = PendulumModel()
+else: temp_robot = DoublePendulumModel()
 
+# --- GENERAZIONE STATI INIZIALI ---
+# Generiamo N stati casuali validi.
+# Usiamo il tuo generatore
+initial_states = generate_random_initial_states(temp_robot, n_samples=N_TRIALS)
+
+# Strutture dati per risultati
+# Costi (più basso è meglio)
 costs = {'A': [], 'B': [], 'C': []}
-successes = {'A': 0, 'B': 0, 'C': 0}
-
-# Generazione stati iniziali casuali
-np.random.seed(42) # Per riproducibilità
-initial_states = []
-for _ in range(N_TRIALS):
-    # Genera angolo casuale (evitando lo zero esatto)
-    q_rnd = np.random.uniform(-np.pi, np.pi)
-    dq_rnd = np.random.uniform(-1.0, 1.0)
-    
-    if ROBOT_TYPE == "single":
-        x0 = np.array([q_rnd, dq_rnd])
-    else:
-        # Per il doppio pendolo, aggiungiamo altre 2 dimensioni
-        x0 = np.array([q_rnd, 0.0, dq_rnd, 0.0])
-    
-    initial_states.append(x0)
+# Errori MSE rispetto al target
+errors_mse = {'A': [], 'B': [], 'C': []}
+# Tassi di successo
+success_flags = {'A': [], 'B': [], 'C': []}
 
 # --- LOOP DI TEST ---
-for i, x0 in enumerate(initial_states):
-    print(f"\nTrial {i+1}/{N_TRIALS}...")
+for i in range(N_TRIALS):
+    x0 = initial_states[i]
+    print(f"\n>>> Trial {i+1}/{N_TRIALS} - Init: {x0}")
     
     # 1. CASO A: Orizzonte Corto (M), No Rete
-    print("   Running Case A (Short, NoNet)...")
-    c_a, _, _, ok= run_mpc_simulation(ROBOT_TYPE, horizon=M_SHORT, use_network=False, x_init=x0, sim_steps=SIM_STEPS)
-    costs['A'].append(c_a)
-    if ok: successes['A'] += 1
+    # Questo ci aspettiamo che fallisca o faccia fatica
+    print("   Running Case A (Short, No NN)...", end="")
+    cost_a, mse_a, dist_a, ok_a = run_mpc_simulation(ROBOT_TYPE, horizon=M_SHORT, use_network=False, x_init=x0, sim_steps=SIM_STEPS)
+    costs['A'].append(cost_a)
+    errors_mse['A'].append(mse_a)
+    success_flags['A'].append(ok_a)
+    print(f" Done. Success: {ok_a}, Cost: {cost_a:.1f}")
 
     # 2. CASO B: Orizzonte Corto (M), CON Rete -> Il tuo metodo
-    print("   Running Case B (Short, Net)...")
-    c_b, _, _, ok= run_mpc_simulation(ROBOT_TYPE, horizon=M_SHORT, use_network=True, x_init=x0, sim_steps=SIM_STEPS)
-    costs['B'].append(c_b)
-    if ok: successes['B'] += 1
-
-    # 3. CASO C: Orizzonte Lungo (N), No Rete -> Benchmark
-    print("   Running Case C (Long, NoNet)...")
-    c_c, _, _, ok = run_mpc_simulation(ROBOT_TYPE, horizon=N_LONG, use_network=False, x_init=x0, sim_steps=SIM_STEPS)
-    costs['C'].append(c_c)
-    if ok: successes['C'] += 1
-
-
-# Ottima idea. Monitorare la Percentuale di Successo è fondamentale per il report, perché il "Costo Medio" può essere ingannevole (se un metodo fallisce sempre ma con costo basso perché sta fermo, sembra buono ma non lo è).
-
-print("\n--- RISULTATI ---")
-labels = ['A (M)', 'B (M + Net)', 'C (N)']
-avg_costs = [np.mean(costs['A']), np.mean(costs['B']), np.mean(costs['C'])]
-succ_rates = [successes['A'], successes['B'], successes['C']]
-
-print(f"Successi su {N_TRIALS}: A={succ_rates[0]}, B={succ_rates[1]}, C={succ_rates[2]}")
-print(f"Costi Medi: A={avg_costs[0]:.0f}, B={avg_costs[1]:.0f}, C={avg_costs[2]:.0f}")
-
-# --- PLOT 1: GRAFICO A BARRE COSTI ---
-plt.figure(figsize=(8, 5))
-plt.bar(labels, avg_costs, color=['red', 'green', 'blue'], alpha=0.7)
-plt.ylabel('Costo Medio Accumulato')
-plt.title('Confronto Costi MPC')
-plt.grid(axis='y', linestyle='--')
-plt.savefig(f"comparison_costs_{ROBOT_TYPE}.png")
-
-# --- PLOT 2: GRAFICI A TORTA SUCCESSI ---
-fig, axs = plt.subplots(1, 3, figsize=(15, 5))
-fig.suptitle(f'Tasso di Successo su {N_TRIALS} prove ({ROBOT_TYPE})', fontsize=16)
-
-colors = ['#66b3ff', '#ff9999'] # Blu (Successo), Rosso (Fallimento)
-explode = (0.1, 0)  
-
-for idx, method in enumerate(['A', 'B', 'C']):
-    succ = successes[method]
-    fail = N_TRIALS - succ
+    print("   Running Case B (Short + NeuralNet)...", end="")
+    cost_b, mse_b, dist_b, ok_b = run_mpc_simulation(ROBOT_TYPE, horizon=M_SHORT, use_network=True, x_init=x0, sim_steps=SIM_STEPS)
+    costs['B'].append(cost_b)
+    errors_mse['B'].append(mse_b)
+    success_flags['B'].append(ok_b)
+    print(f" Done. Success: {ok_b}, Cost: {cost_b:.1f}")
     
-    axs[idx].pie([succ, fail], labels=['Success', 'Fail'], autopct='%1.1f%%', 
-                 startangle=90, colors=['mediumseagreen', 'salmon'], explode=explode)
-    axs[idx].set_title(f'Metodo {labels[idx]}')
+    # 3. CASO C: Orizzonte Lungo (Benchmark), No Rete
+    # Questo è lento ma dovrebbe essere il migliore
+    print("   Running Case C (Long Benchmark)...", end="")
+    cost_c, mse_c, dist_c, ok_c = run_mpc_simulation(ROBOT_TYPE, horizon=N_LONG, use_network=False, x_init=x0, sim_steps=SIM_STEPS)
+    costs['C'].append(cost_c)
+    errors_mse['C'].append(mse_c)
+    success_flags['C'].append(ok_c)
+    print(f" Done. Success: {ok_c}, Cost: {cost_c:.1f}")
+
+# --- ANALISI DATI ---
+def get_stats(data_list):
+    return np.mean(data_list), np.std(data_list)
+
+print("\n" + "="*40)
+print("   REPORT FINALE")
+print("="*40)
+
+methods = [('A', f'Short (N={M_SHORT})'), 
+           ('B', f'Neural (N={M_SHORT})'), 
+           ('C', f'Long (N={N_LONG})')]
+
+# Calcolo percentuali successo
+succ_rates = {}
+for k, label in methods:
+    succ_rate = np.sum(success_flags[k]) / N_TRIALS * 100
+    succ_rates[k] = succ_rate
+    
+    # Calcoliamo costo medio SOLO sulle prove di successo (per non falsare con costi infiniti)
+    # Oppure su tutte se vogliamo penalizzare i fallimenti
+    valid_costs = [c for c, ok in zip(costs[k], success_flags[k])] # prendiamo tutto per ora
+    mean_c = np.mean(costs[k])
+    
+    mean_mse = np.mean(errors_mse[k])
+    
+    print(f"Metodo {k} [{label}]:")
+    print(f"  Success Rate: {succ_rate:.1f}%")
+    print(f"  Avg Cost:     {mean_c:.2f}")
+    print(f"  Avg MSE:      {mean_mse:.4f}")
+    print("-" * 20)
+
+# --- PLOTTING ---
+labels = [m[1] for m in methods]
+keys = [m[0] for m in methods]
+
+# 1. Tasso di Successo (Bar Chart)
+plt.figure(figsize=(10, 5))
+plt.subplot(1, 2, 1)
+rates = [succ_rates[k] for k in keys]
+bars = plt.bar(keys, rates, color=['gray', 'orange', 'green'], alpha=0.7)
+plt.ylabel('Success Rate (%)')
+plt.title(f'Affidabilità ({ROBOT_TYPE})')
+plt.ylim(0, 105)
+plt.grid(axis='y', linestyle='--', alpha=0.5)
+# Aggiungi etichette sulle barre
+for bar in bars:
+    yval = bar.get_height()
+    plt.text(bar.get_x() + bar.get_width()/2, yval + 1, f"{yval:.0f}%", ha='center', va='bottom')
+
+# 2. Costo Medio (Box Plot per vedere la varianza)
+plt.subplot(1, 2, 2)
+data_to_plot = [costs['A'], costs['B'], costs['C']]
+plt.boxplot(data_to_plot, labels=keys, patch_artist=True, 
+            boxprops=dict(facecolor="lightblue"))
+plt.ylabel('Total Cost (Accumulated)')
+plt.title('Distribuzione dei Costi')
+plt.grid(linestyle='--', alpha=0.5)
+plt.yscale('log') # Log scale perché i costi di fallimento possono essere enormi
 
 plt.tight_layout()
+#plt.savefig(f"comparison_summary_{ROBOT_TYPE}.png")
+plt.show()
 
+# 3. MSE (Errore di tracking)
+plt.figure(figsize=(6, 4))
+mse_data = [errors_mse['A'], errors_mse['B'], errors_mse['C']]
+plt.boxplot(mse_data, labels=keys, patch_artist=True,
+            boxprops=dict(facecolor="lightgreen"))
+plt.title("Errore Quadratico Medio (Tracking Accuracy)")
+plt.ylabel("MSE (Log Scale)")
+plt.yscale('log')
+plt.grid(linestyle='--', alpha=0.5)
+plt.tight_layout()
 plt.show()

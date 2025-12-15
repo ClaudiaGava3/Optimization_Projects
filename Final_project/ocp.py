@@ -16,14 +16,14 @@ from plot import PLOTS
 
 time_start = clock()
 print("Load robot model")
-robot = PendulumModel()
-#robot = DoublePendulumModel() 
+#robot = PendulumModel()
+robot = DoublePendulumModel() 
 nq = robot.nq
 nx = robot.nx
 
 # Parametri Simulazione
 DO_PLOTS = True
-n_samples=1000
+n_samples=5000
 dt = 0.01     
 N = 100     # Orizzonte lungo N
 
@@ -59,7 +59,7 @@ tau_max = robot.effortLimit.tolist()
 X, U = [], []
 for k in range(N+1): 
     X += [opti.variable(nx)]
-    opti.subject_to( opti.bounded(lbx, X[-1], ubx) )
+    #opti.subject_to( opti.bounded(lbx, X[-1], ubx) )
 for k in range(N): 
     U += [opti.variable(nq)] # Qui U è l'accelerazione (ddq)
 
@@ -69,14 +69,14 @@ for k in range(N):
         
     # Errore posizione: X[k][:nq] è q
     pos_err = X[k][:nq] - param_q_des
-    cost += w_p * pos_err.T @ pos_err
+    cost += w_p * pos_err.T @ pos_err*dt
         
     # Penalità velocità: X[k][nq:] è dq
     vel = X[k][nq:]
-    cost += w_v * vel.T @ vel
+    cost += w_v * vel.T @ vel*dt
         
     # Penalità input (accelerazione)
-    cost += w_a * U[k].T @ U[k]
+    cost += w_a * U[k].T @ U[k]*dt
 
     # Dinamica: Collocation (Eulero esplicito)
     # x_next = x + dt * f(x, u)
@@ -88,9 +88,9 @@ for k in range(N):
     #opti.subject_to( opti.bounded(tau_min, tau_k, tau_max))
 
     # Costo finale (Non serve per la parte iniziale)
-    if w_final > 0:
-        cost += w_final * (X[-1][:nq] - param_q_des).T @ (X[-1][:nq] - param_q_des)
-        cost += w_final * X[-1][nq:].T @ X[-1][nq:]
+    #if w_final > 0:
+    #    cost += w_final * (X[-1][:nq] - param_q_des).T @ (X[-1][:nq] - param_q_des)
+    #    cost += w_final * X[-1][nq:].T @ X[-1][nq:]
 
 # Vincolo Iniziale (Legato al Parametro!)
 opti.subject_to(X[0] == param_x_init)
@@ -188,5 +188,7 @@ np.savez(filename, inputs=data_x, targets=data_y)
 print(f"Dati salvati in '{filename}'. Pronto per il Training!")
 
 # --- FASE 4: PLOTS ---
+
+print("Vlue function media: ", np.mean(dataset_labels))
 
 PLOTS(DO_PLOTS, success_count, last_sol, N, dt, X, U, nq, nx, inv_dyn, q_des, tau_max, tau_min, robot, initial_conditions)

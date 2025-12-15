@@ -46,5 +46,7 @@ def generate_random_initial_states(robot_model, n_samples=100, seed=None):
     # Crea una matrice (N, nx) dove ogni colonna scala tra min e max
     X_init = np.random.uniform(low=lbx, high=ubx, size=(n_samples, nx))
     
+    #print(X_init)
+
     return X_init
 
