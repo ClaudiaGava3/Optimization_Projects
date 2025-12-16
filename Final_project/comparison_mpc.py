@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpc_funzione import run_mpc_simulation
+from time import time as clock
 
 # --- IMPORTA IL GENERATORE RANDOM ---
 try:
@@ -39,36 +40,33 @@ errors_mse = {'A': [], 'B': [], 'C': []}
 # Tassi di successo
 success_flags = {'A': [], 'B': [], 'C': []}
 
+times = {'A': [], 'B': [], 'C': []} # <--- NUOVA LISTA
+
 # --- LOOP DI TEST ---
 for i in range(N_TRIALS):
     x0 = initial_states[i]
     print(f"\n>>> Trial {i+1}/{N_TRIALS} - Init: {x0}")
     
-    # 1. CASO A: Orizzonte Corto (M), No Rete
-    # Questo ci aspettiamo che fallisca o faccia fatica
-    print("   Running Case A (Short, No NN)...", end="")
-    cost_a, mse_a, dist_a, ok_a = run_mpc_simulation(ROBOT_TYPE, horizon=M_SHORT, use_network=False, x_init=x0, sim_steps=SIM_STEPS)
-    costs['A'].append(cost_a)
-    errors_mse['A'].append(mse_a)
-    success_flags['A'].append(ok_a)
-    print(f" Done. Success: {ok_a}, Cost: {cost_a:.1f}")
+    # CASO A
+    t_start = clock() # START
+    c_a, m_a, _, ok_a, x_h_a, u_h_a = run_mpc_simulation(ROBOT_TYPE, M_SHORT, False, x0, SIM_STEPS)
+    t_end = clock()   # END
+    costs['A'].append(c_a); errors_mse['A'].append(m_a); success_flags['A'].append(ok_a)
+    times['A'].append(t_end - t_start) # Salva tempo
 
-    # 2. CASO B: Orizzonte Corto (M), CON Rete -> Il tuo metodo
-    print("   Running Case B (Short + NeuralNet)...", end="")
-    cost_b, mse_b, dist_b, ok_b = run_mpc_simulation(ROBOT_TYPE, horizon=M_SHORT, use_network=True, x_init=x0, sim_steps=SIM_STEPS)
-    costs['B'].append(cost_b)
-    errors_mse['B'].append(mse_b)
-    success_flags['B'].append(ok_b)
-    print(f" Done. Success: {ok_b}, Cost: {cost_b:.1f}")
-    
-    # 3. CASO C: Orizzonte Lungo (Benchmark), No Rete
-    # Questo è lento ma dovrebbe essere il migliore
-    print("   Running Case C (Long Benchmark)...", end="")
-    cost_c, mse_c, dist_c, ok_c = run_mpc_simulation(ROBOT_TYPE, horizon=N_LONG, use_network=False, x_init=x0, sim_steps=SIM_STEPS)
-    costs['C'].append(cost_c)
-    errors_mse['C'].append(mse_c)
-    success_flags['C'].append(ok_c)
-    print(f" Done. Success: {ok_c}, Cost: {cost_c:.1f}")
+    # CASO B
+    t_start = clock()
+    c_b, m_b, _, ok_b, x_h_b, u_h_b = run_mpc_simulation(ROBOT_TYPE, M_SHORT, True, x0, SIM_STEPS)
+    t_end = clock()
+    costs['B'].append(c_b); errors_mse['B'].append(m_b); success_flags['B'].append(ok_b)
+    times['B'].append(t_end - t_start)
+
+    # CASO C
+    t_start = clock()
+    c_c, m_c, _, ok_c, x_h_c, u_h_c = run_mpc_simulation(ROBOT_TYPE, N_LONG+M_SHORT, False, x0, SIM_STEPS)
+    t_end = clock()
+    costs['C'].append(c_c); errors_mse['C'].append(m_c); success_flags['C'].append(ok_c)
+    times['C'].append(t_end - t_start)
 
 # --- ANALISI DATI ---
 def get_stats(data_list):
@@ -78,9 +76,9 @@ print("\n" + "="*40)
 print("   REPORT FINALE")
 print("="*40)
 
-methods = [('A', f'Short (N={M_SHORT})'), 
-           ('B', f'Neural (N={M_SHORT})'), 
-           ('C', f'Long (N={N_LONG})')]
+methods = [('A', f'Short (M={M_SHORT})'), 
+           ('B', f'Neural (M={M_SHORT})'), 
+           ('C', f'Long (N+M={N_LONG+M_SHORT})')]
 
 # Calcolo percentuali successo
 succ_rates = {}
@@ -94,12 +92,16 @@ for k, label in methods:
     mean_c = np.mean(costs[k])
     
     mean_mse = np.mean(errors_mse[k])
+
+    avg_time = np.mean(times[k])
     
     print(f"Metodo {k} [{label}]:")
     print(f"  Success Rate: {succ_rate:.1f}%")
     print(f"  Avg Cost:     {mean_c:.2f}")
     print(f"  Avg MSE:      {mean_mse:.4f}")
+    print(f"  Avg Time:     {avg_time:.4f} s") # <--- STAMPA TEMPO
     print("-" * 20)
+    
 
 # --- PLOTTING ---
 labels = [m[1] for m in methods]
@@ -144,3 +146,14 @@ plt.yscale('log')
 plt.grid(linestyle='--', alpha=0.5)
 plt.tight_layout()
 plt.show()
+
+# 4. TEMPI COMPUTAZIONALI
+plt.figure(figsize=(6, 5))
+data_times = [times['A'], times['B'], times['C']]
+plt.boxplot(data_times, labels=keys, patch_artist=True, 
+            boxprops=dict(facecolor="salmon"))
+plt.ylabel('Time per Simulation [s]')
+plt.title('Efficienza Computazionale')
+plt.grid(linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show() # Oppure savefig

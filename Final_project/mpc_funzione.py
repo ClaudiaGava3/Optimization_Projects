@@ -139,6 +139,9 @@ def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, 
     last_U_sol = None
     
     solver_failed = False
+
+    x_history = [current_x]
+    u_history = []
     
     for t in range(sim_steps):
         opti.set_value(param_x_init, current_x)
@@ -179,6 +182,9 @@ def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, 
             # Step Dinamica
             f_val = robot.get_dynamics_functions()[0](current_x, u_opt)
             current_x = current_x + dt * np.array(f_val).flatten()
+
+            x_history.append(current_x)
+            u_history.append(u_opt)
             
         except RuntimeError:
             solver_failed = True
@@ -201,4 +207,4 @@ def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, 
     
     mse = squared_error_sum / sim_steps
     
-    return accumulated_cost, mse, final_pos_error, success
+    return accumulated_cost, mse, final_pos_error, success, np.array(x_history), np.array(u_history)
