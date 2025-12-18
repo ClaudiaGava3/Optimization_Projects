@@ -19,20 +19,19 @@ def generate_random_initial_states(robot_model, n_samples=100, seed=None):
         
     nx = robot_model.nx
     
-    # 1. Costruiamo i limiti globali dello stato x = [q, dq]
-    # Assumiamo che il robot abbia limiti di posizione e velocità separati
-    # Se il robot non ha limiti definiti, mettiamo valori di default larghi
+    # 1. Costruisco i limiti globali dello stato x = [q, dq]
+    # Assumo che il robot abbia limiti di posizione e velocità separati
+    # Se il robot non ha limiti definiti, metto valori di default larghi
     
     try:
         # Limiti Posizione
         q_min = robot_model.lowerPositionLimit
         q_max = robot_model.upperPositionLimit
         
-        # Limiti Velocità (simmetrici solitamente)
+        # Limiti Velocità
         dq_max = robot_model.velocityLimit
         dq_min = -dq_max
         
-        # Concateniamo per ottenere i limiti dello stato intero
         # lbx = [q_min..., dq_min...]
         lbx = np.concatenate([q_min, dq_min])
         ubx = np.concatenate([q_max, dq_max])

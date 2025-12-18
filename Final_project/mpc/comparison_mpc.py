@@ -1,23 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mpc_funzione import run_mpc_simulation
+from optimal_control.casadi_adam.final_project_.mpc.mpc_funzione import run_mpc_simulation
 from time import time as clock
 
-# --- IMPORTA IL GENERATORE RANDOM ---
+# --- IMPORTO IL GENERATORE RANDOM ---
 try:
-    from random_generator import generate_random_initial_states
-    from pendolum_model import PendulumModel
-    from doublependolum_model import DoublePendulumModel
+    from optimal_control.casadi_adam.final_project_.ocp.random_generator import generate_random_initial_states
+    from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
+    from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
 except ImportError:
     print("ERRORE: random_generator.py o modelli non trovati.")
     exit()
 
 # --- CONFIGURAZIONE ---
 ROBOT_TYPE = "single"  # "single" o "double"
-N_TRIALS = 20          # Numero prove random (partiamo con 20 per velocità)
-M_SHORT = 20           # Orizzonte Corto (quello che hai usato con successo)
-N_LONG = 100           # Orizzonte Lungo (Benchmark)
-SIM_STEPS = 150        # Durata simulazione (step) per dare tempo di arrivare
+N_TRIALS = 100          # Numero prove random
+M_SHORT = 5          # Orizzonte Corto (quello usato con successo)
+#M_SHORT = 20
+N_LONG = 100           # Orizzonte Lungo
+SIM_STEPS = 300        # Durata simulazione (step) per dare tempo di arrivare
 
 print(f"--- INIZIO COMPARAZIONE (Robot: {ROBOT_TYPE}) ---")
 print(f"Horizon Short: {M_SHORT}, Horizon Long: {N_LONG}")
@@ -28,8 +29,6 @@ if ROBOT_TYPE == "single": temp_robot = PendulumModel()
 else: temp_robot = DoublePendulumModel()
 
 # --- GENERAZIONE STATI INIZIALI ---
-# Generiamo N stati casuali validi.
-# Usiamo il tuo generatore
 initial_states = generate_random_initial_states(temp_robot, n_samples=N_TRIALS)
 
 # Strutture dati per risultati
@@ -40,7 +39,7 @@ errors_mse = {'A': [], 'B': [], 'C': []}
 # Tassi di successo
 success_flags = {'A': [], 'B': [], 'C': []}
 
-times = {'A': [], 'B': [], 'C': []} # <--- NUOVA LISTA
+times = {'A': [], 'B': [], 'C': []}
 
 # --- LOOP DI TEST ---
 for i in range(N_TRIALS):
@@ -86,9 +85,9 @@ for k, label in methods:
     succ_rate = np.sum(success_flags[k]) / N_TRIALS * 100
     succ_rates[k] = succ_rate
     
-    # Calcoliamo costo medio SOLO sulle prove di successo (per non falsare con costi infiniti)
-    # Oppure su tutte se vogliamo penalizzare i fallimenti
-    valid_costs = [c for c, ok in zip(costs[k], success_flags[k])] # prendiamo tutto per ora
+    # Calcolo costo medio SOLO sulle prove di successo (per non falsare con costi infiniti)
+    # Oppure su tutte se voglio penalizzare i fallimenti
+    valid_costs = [c for c, ok in zip(costs[k], success_flags[k])]
     mean_c = np.mean(costs[k])
     
     mean_mse = np.mean(errors_mse[k])
@@ -99,7 +98,7 @@ for k, label in methods:
     print(f"  Success Rate: {succ_rate:.1f}%")
     print(f"  Avg Cost:     {mean_c:.2f}")
     print(f"  Avg MSE:      {mean_mse:.4f}")
-    print(f"  Avg Time:     {avg_time:.4f} s") # <--- STAMPA TEMPO
+    print(f"  Avg Time:     {avg_time:.4f} s")
     print("-" * 20)
     
 
@@ -116,7 +115,7 @@ plt.ylabel('Success Rate (%)')
 plt.title(f'Affidabilità ({ROBOT_TYPE})')
 plt.ylim(0, 105)
 plt.grid(axis='y', linestyle='--', alpha=0.5)
-# Aggiungi etichette sulle barre
+# Aggiungo etichette sulle barre
 for bar in bars:
     yval = bar.get_height()
     plt.text(bar.get_x() + bar.get_width()/2, yval + 1, f"{yval:.0f}%", ha='center', va='bottom')
@@ -156,4 +155,4 @@ plt.ylabel('Time per Simulation [s]')
 plt.title('Efficienza Computazionale')
 plt.grid(linestyle='--', alpha=0.5)
 plt.tight_layout()
-plt.show() # Oppure savefig
+plt.show()

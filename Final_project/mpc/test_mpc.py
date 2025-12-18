@@ -6,30 +6,30 @@ import matplotlib.pyplot as plt
 import os
 import shutil
 
-# --- IMPORT UTILITIES ---
-from pendolum_model import PendulumModel
-from doublependolum_model import DoublePendulumModel
-from neural_network import NeuralNetwork
-from random_generator import generate_random_initial_states
-from plot import animate_pendulum, animate_double_pendulum
+# --- IMPORT FILES ---
+from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
+from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
+from optimal_control.casadi_adam.final_project_.neural_network.neural_network import NeuralNetwork
+from optimal_control.casadi_adam.final_project_.ocp.random_generator import generate_random_initial_states
+from optimal_control.casadi_adam.final_project_.plot.plot import animate_pendulum, animate_double_pendulum
 
 # --- CONFIGURAZIONE ---
-#MODEL_FILE = "learned_value_pendulum.pth"       
-MODEL_FILE = "learned_value_double_pendulum.pth" 
+#MODEL_FILE = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/learned_value_pendulum.pth"       
+MODEL_FILE = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/learned_value_double_pendulum.pth" 
 
 DT = 0.01
-M = 20      #per pendolo semplice arriva bene anche a 10, per quello doppio già a 15 da più errore 
+M = 20      #per pendolo semplice arriva bene anche a 10, per quello doppio già a 15 da più errore
 SIM_TIME = 3.0  
 N_SIM = int(SIM_TIME / DT)
 
-# Pesi Costo 
+# Pesi
 W_P = 1.0     
 W_V = 1e-3      
 W_A = 1e-4
 W_FINAL = 1      
 
 # Soglia di successo (in radianti)
-# Se l'errore finale è minore di questo valore, consideriamo la prova superata.
+# Se l'errore finale è minore di questo valore, considero la prova superata.
 SUCCESS_THRESHOLD = 0.15
 
 # --- PULIZIA PREVENTIVA ---
@@ -88,7 +88,7 @@ x_norm = (x_sym - cs.DM(mean_X)) / cs.DM(std_X)
 
 # Inizializzazione L4Casadi
 # Nota: La rete neurale PyTorch si aspetta [Batch, Dim].
-# Casadi fornisce [Dim, 1]. Dobbiamo trasporre x_norm per avere [1, Dim].
+# Casadi fornisce [Dim, 1]. Devo trasporre x_norm per avere [1, Dim].
 l4c_model = l4c.L4CasADi(net, name="learned_value_function")
 
 # Passaggio nella rete con TRASPOSIZIONE (.T)
@@ -102,7 +102,7 @@ value_func = cs.Function('value_func', [x_sym], [J_pred])
 
 
 # --- 3. COSTRUZIONE SOLVER MPC ---
-print(f"--- Costruzione MPC (M={M}) ---")
+print(f"--- Costruzione MPC ---")
 opti = cs.Opti()
 
 param_x_init = opti.parameter(nx)
@@ -116,6 +116,8 @@ f_dyn, inv_dyn = robot.get_dynamics_functions()
 # pre-compute state and torque bounds
 lbx = robot.lowerPositionLimit.tolist() + (-robot.velocityLimit).tolist()
 ubx = robot.upperPositionLimit.tolist() + robot.velocityLimit.tolist()
+v_min = (-robot.velocityLimit).tolist()
+v_max = robot.velocityLimit.tolist()
 tau_min = (-robot.effortLimit).tolist()
 tau_max = robot.effortLimit.tolist()
 
@@ -130,22 +132,17 @@ for k in range(M):
     cost += (W_V * cs.mtimes(vel.T, vel)) * DT
     cost += (W_A * cs.mtimes(U[k].T, U[k])) * DT
     
-    # Dinamica
+    # Dinamica (Eulero)
     opti.subject_to(X[k+1] == X[k] + DT * f_dyn(X[k], U[k]))
-
-    # --- VINCOLI DI SICUREZZA (NECESSARI PER STABILITÀ) ---
-    # Velocità massima (es. 10 rad/s è già tantissimo per un pendolo di 1m)
-    #opti.subject_to(opti.bounded(-15.0, X[k+1][nq:], 15.0))
-    #opti.subject_to(opti.bounded(-100.0, U[k], 100.0))
 
 # --- COSTO TERMINALE ---
 J_terminal = value_func(X[-1])
-print(J_terminal)
+#print(J_terminal)
 cost += W_FINAL*J_terminal
 
 opti.minimize(cost)
 
-# --- OPZIONI SOLVER (CRUCIALE PER L4CASADI) ---
+# --- OPZIONI SOLVER ---
 opts = {
     "ipopt.print_level": 0,
     "ipopt.tol": 1e-4,
@@ -162,11 +159,8 @@ opti.solver("ipopt", opts)
 
 
 # --- 4. SIMULAZIONE ---
-# Generiamo uno stato casuale
+# Genero uno stato casuale
 x_init = generate_random_initial_states(robot, n_samples=1)[0]
-
-# --- DEBUG: Proviamo a forzare uno stato semplice se il random è troppo difficile ---
-#x_init = np.array([0.0, 0.0]) # Pendolo giù (test swing up)
 
 print(f"\nStato Iniziale: {x_init}")
 print(f"Target: {q_des}")
@@ -193,7 +187,7 @@ for t in range(N_SIM):
         sol = opti.solve()
         
         u_opt = sol.value(U[0])
-        u_opt = np.atleast_1d(u_opt) # Assicura che sia array
+        u_opt = np.atleast_1d(u_opt)
         
         last_X_sol = [sol.value(x) for x in X]
         last_U_sol = [sol.value(u) for u in U]
@@ -236,9 +230,8 @@ if u_history.ndim == 1:
 
 
 # --- CALCOLO METRICA DI SUCCESSO ---
-# Prendiamo l'ultima configurazione dei giunti (escludiamo le velocità)
 q_final = x_history[-1, :nq]
-# Calcoliamo la distanza euclidea dal target
+# Calcolo la distanza euclidea dal target
 final_error = np.linalg.norm(q_final - q_des)
 success = final_error < SUCCESS_THRESHOLD
 
@@ -258,20 +251,35 @@ print("="*30 + "\n")
 
 
 
-# Plot Stati
+# Plot Position
 plt.figure(figsize=(10, 6))
 for j in range(nq):
     plt.plot(time_axis, x_history[:, j], label=f'q_{j+1}')
-    plt.axhline(q_des[j], color='gray', linestyle='--', alpha=0.5)
-plt.title(f"Posizioni - Neural MPC (M={M})")
+    plt.axhline(q_des[j], color='red', linestyle='--', alpha=0.5)
+plt.title(f"Joint Position - MPC with NN (M={M})")
+plt.xlabel('Time [s]'); plt.ylabel('Angle [rad]')
 plt.legend(); plt.grid(True); plt.show()
 
-# Plot Controlli
+# Plot Velocity
+plt.figure(figsize=(10, 6))
+valid_len = len(x_history)
+for j in range(nq):
+    plt.plot(time_axis, x_history[:, nq + j], label=f'dq_{j+1}')
+    plt.plot(time_axis, np.ones(valid_len)*v_max[0], 'r--', alpha=0.3)
+    plt.plot(time_axis, np.ones(valid_len)*v_min[0], 'r--', alpha=0.3)
+plt.title(f"Joint Velocity - MPC with NN (M={M})")
+plt.xlabel('Time [s]'); plt.ylabel('Velocity [rad/s]')
+plt.legend(); plt.grid(True); plt.show()
+
+# Plot Torque
 plt.figure(figsize=(10, 4))
 valid_len = len(u_history)
 for j in range(nq):
     plt.plot(time_axis[:valid_len], u_history[:, j], label=f'u_{j+1}')
-plt.title("Controlli")
+    plt.plot(time_axis[:valid_len], np.ones(valid_len)*tau_max[0], 'r--', alpha=0.3)
+    plt.plot(time_axis[:valid_len], np.ones(valid_len)*tau_min[0], 'r--', alpha=0.3)
+plt.title(f"Joint Torque - MPC with NN (M={M})")
+plt.xlabel('Time [s]'); plt.ylabel('Torque [Nm]')
 plt.grid(True); plt.legend(); plt.show()
 
 # Animazione

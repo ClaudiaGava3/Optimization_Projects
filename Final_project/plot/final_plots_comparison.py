@@ -1,17 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mpc_funzione import run_mpc_simulation
+from optimal_control.casadi_adam.final_project_.mpc.mpc_funzione import run_mpc_simulation
 
 # --- IMPORT MODELLI ---
 try:
-    from pendolum_model import PendulumModel
-    from doublependolum_model import DoublePendulumModel
+    from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
+    from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
 except ImportError:
     print("ERRORE: Modelli non trovati.")
     exit()
 
 # --- CONFIGURAZIONE ---
-ROBOT_TYPE = "double"  # CAMBIA IN "double" PER L'ALTRO
+ROBOT_TYPE = "double"  # "double" o "single"
 M_SHORT = 20           # Orizzonte Corto
 N_LONG = 100           # Orizzonte Lungo
 SIM_STEPS = 300        # Tempo simulazione
@@ -19,21 +19,20 @@ DT = 0.01
 
 print(f"--- GENERAZIONE GRAFICI COMPARATIVI: {ROBOT_TYPE} ---")
 
-# 1. Definiamo lo Stato Iniziale "Difficile" (Swing-Up da fermo)
+# 1. Stato Iniziale "Difficile" (Swing-Up da fermo)
 if ROBOT_TYPE == "single":
     robot = PendulumModel()
     x_init = np.array([0.0, 0.0])  # Giù fermo
     q_target = np.array([np.pi])
-    ylims_q = [-1, 4] # Per zoomare meglio il grafico
+    ylims_q = [-1, 4]
 elif ROBOT_TYPE == "double":
     robot = DoublePendulumModel()
     x_init = np.array([0.0, 0.0, 0.0, 0.0]) # Giù fermo
     q_target = np.array([np.pi, 0.0])
-    ylims_q = [-7, 7] # Doppio pendolo fa giri più ampi
-
+    ylims_q = [-7, 7]
 print(f"Testando Swing-Up da: {x_init}")
 
-# 2. Eseguiamo le 3 simulazioni
+# 2. Eseguo le 3 simulazioni
 print("Simulazione A (M, No NN)...")
 _, _, _, ok_a, x_a, u_a = run_mpc_simulation(ROBOT_TYPE, M_SHORT, False, x_init, SIM_STEPS)
 
@@ -47,14 +46,14 @@ _, _, _, ok_c, x_c, u_c = run_mpc_simulation(ROBOT_TYPE, N_LONG+M_SHORT, False, 
 nq = robot.nq
 time = np.arange(len(x_a)) * DT
 
-# Creiamo una figura unica con sottotrame
+# Creo una figura unica con sottotrame
 fig, axs = plt.subplots(3, nq, figsize=(12, 10), sharex=True)
 if nq == 1: axs = axs.reshape(3, 1) # Fix dimensioni array per pendolo singolo
 
 # Colori e Stili
-# A = Rosso Tratteggiato (Spesso fallisce)
-# B = Verde Solido (Il nostro metodo)
-# C = Blu Puntinato (Benchmark)
+# A = Rosso Tratteggiato
+# B = Verde Solido
+# C = Blu Puntinato
 style_a = {'color': 'red', 'linestyle': '--', 'label': f'Case A (M={M_SHORT})', 'alpha': 0.7}
 style_b = {'color': 'green', 'linestyle': '-', 'label': f'Case B (Neural M={M_SHORT})', 'linewidth': 2}
 style_c = {'color': 'blue', 'linestyle': ':', 'label': f'Case C (Bench N+M={N_LONG+M_SHORT})', 'linewidth': 2, 'alpha': 0.8}

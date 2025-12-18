@@ -2,38 +2,43 @@ import numpy as np
 import matplotlib.pyplot as plt
 import casadi as cs
 from time import time as clock
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
+import os
 
 # --- IMPORTO MODELLI ---
-from pendolum_model import PendulumModel
+from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
+from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
 from optimal_control.casadi_adam.final_project_.prof.pendulum import Pendulum
-from doublependolum_model import DoublePendulumModel
 
 # --- IMPORTO GENERATORE RANDOMICO PER STATI INIZIALI ---
-from random_generator import generate_random_initial_states
+from optimal_control.casadi_adam.final_project_.ocp.random_generator import generate_random_initial_states
 
 # --- IMPORTO PLOT ---
-from plot import PLOTS
+from optimal_control.casadi_adam.final_project_.plot.plot import PLOTS
 
 time_start = clock()
 print("Load robot model")
 #robot = PendulumModel()
-robot = DoublePendulumModel() 
+robot = DoublePendulumModel()
+
 nq = robot.nq
 nx = robot.nx
 
-# Parametri Simulazione
+# PARAMETRI SIMULAZIONE
 DO_PLOTS = True
-n_samples=5000
+n_samples=10000
 dt = 0.01     
 N = 100     # Orizzonte lungo N
 
-# Stato iniziale e target
-q0 = np.zeros(robot.nq)     # Parte da giù (0)
-dq0= np.zeros(robot.nq)
+# CONDIZIONE INIZIALE DI DEFAULT E TARGET
+q0 = np.zeros(robot.nq)     # Parte da giù (q0=0)
+dq0= np.zeros(robot.nq)     # Parte da fermo (dq0=0)
 q_des= np.zeros(robot.nq)
 if nx==2: q_des = np.array([np.pi])    # Target: eq. instabile (in alto)
 else: q_des = np.array([np.pi, 0.0])     # Target: eq. instabile (in alto)
 
+# PESI
 w_p = 1         # position weight
 w_v = 1e-3      # velocity weight
 w_a = 1e-4      # acceleration weight
@@ -41,27 +46,29 @@ w_final = 0     # Project A fase 1: NON usare costo terminale
 
 print("Create optimization parameters")
 opti = cs.Opti()
-param_x_init = opti.parameter(nx)
+param_x_init = opti.parameter(nx) 
 param_q_des = opti.parameter(nq)
 cost = 0
 
 # --- DINAMICA ---
-# già fatta nella funzione
+# già fatta nel modello
 f, inv_dyn = robot.get_dynamics_functions()
 
 # pre-compute state and torque bounds
 lbx = robot.lowerPositionLimit.tolist() + (-robot.velocityLimit).tolist()
 ubx = robot.upperPositionLimit.tolist() + robot.velocityLimit.tolist()
+v_max=(-robot.velocityLimit).tolist()
+v_min=robot.velocityLimit.tolist()
 tau_min = (-robot.effortLimit).tolist()
 tau_max = robot.effortLimit.tolist()
 
 # create all the decision variables
 X, U = [], []
 for k in range(N+1): 
-    X += [opti.variable(nx)]
-    #opti.subject_to( opti.bounded(lbx, X[-1], ubx) )
+    X += [opti.variable(nx)]    # X è una variabile di decisione <=> COLLOCATION
+    #opti.subject_to( opti.bounded(lbx, X[-1], ubx) )   # final constrint state
 for k in range(N): 
-    U += [opti.variable(nq)] # Qui U è l'accelerazione (ddq)
+    U += [opti.variable(nq)]    # U = accelerazione (ddq)
 
 
 for k in range(N):     
@@ -113,7 +120,7 @@ print("Start solving the optimization problem")
 #q_des_val = np.array([np.pi]) 
 opti.set_value(param_q_des, q_des)
 
-# Initial condition
+# Initial condition random
 print("Add initial conditions")
 initial_conditions = generate_random_initial_states(robot, n_samples)
 
@@ -121,12 +128,13 @@ initial_conditions = generate_random_initial_states(robot, n_samples)
 dataset_inputs = []
 dataset_labels = []
 J_opt=0
-success_count=0
+success_count=0     #tengo conto dei successi
 
 for i in range(n_samples):
 
     x_current = initial_conditions[i]
     opti.set_value(param_x_init, x_current)
+    print(f"Initial Condition: {x_current}")
 
     try:
         # Risolvi
@@ -162,7 +170,7 @@ for i in range(n_samples):
 
     except:
         print("OPTIMIZATION FAILED :(")
-        # In caso di fallimento, prendiamo i valori di debug per vedere dove si è bloccato
+        # In caso di fallimento, prendo i valori di debug per vedere dove si è bloccato
         x_sol = np.array([opti.debug.value(X[k]) for k in range(N+1)]).T
         q_sol = x_sol[:nq,:]
         dq_sol = x_sol[nq:,:]
@@ -177,11 +185,11 @@ for i in range(n_samples):
 
 print(f"Finito! Raccolti {len(dataset_inputs)} campioni validi su {n_samples}.")
 
-# Converti le liste in array Numpy
+# Converto le liste in array Numpy
 data_x = np.array(dataset_inputs) 
 data_y = np.array(dataset_labels).reshape(-1,1)
 
-# Salva in un file compresso .npz
+# Salvo in un file compresso .npz
 if nx==2: filename = "dataset_pendulum.npz"
 else: filename = "dataset_doublependulum.npz"
 np.savez(filename, inputs=data_x, targets=data_y)
@@ -191,4 +199,4 @@ print(f"Dati salvati in '{filename}'. Pronto per il Training!")
 
 print("Vlue function media: ", np.mean(dataset_labels))
 
-PLOTS(DO_PLOTS, success_count, last_sol, N, dt, X, U, nq, nx, inv_dyn, q_des, tau_max, tau_min, robot, initial_conditions)
+PLOTS(DO_PLOTS, success_count, last_sol, N, dt, X, U, nq, nx, inv_dyn, q_des, tau_max, tau_min, v_max, v_min, robot, initial_conditions)

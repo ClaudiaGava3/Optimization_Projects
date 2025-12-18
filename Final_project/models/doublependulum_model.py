@@ -18,7 +18,6 @@ class DoublePendulumModel:
         self.nu = 2    # Dimensione input (tau1, tau2) o acc (ddq1, ddq2)
         
         # --- Limiti ---
-        # Posizione: limitiamo a +/- 2 giri, ma potresti metterli infiniti
         self.lowerPositionLimit = np.array([-4*np.pi, -4*np.pi]) 
         self.upperPositionLimit = np.array([ 4*np.pi,  4*np.pi])
         
@@ -39,7 +38,7 @@ class DoublePendulumModel:
         dq  = cs.SX.sym('dq', self.nq)
         ddq = cs.SX.sym('ddq', self.nq) # Variabile di controllo (accelerazione)
         
-        # Estrai le componenti per scrivere le equazioni leggibili
+       
         q1, q2 = q[0], q[1]
         dq1, dq2 = dq[0], dq[1]
         ddq1, ddq2 = ddq[0], ddq[1]
@@ -50,9 +49,6 @@ class DoublePendulumModel:
         # --- Matrice d'Inerzia M(q) ---
         # Elementi della matrice 2x2
         M11 = (m1 + m2) * l1**2 + m2 * l2**2 + 2 * m2 * l1 * l2 * cs.sin(q2) 
-        # Nota: in molte convenzioni q=0 è giù, quindi cos(q2). 
-        # Qui usiamo la convenzione standard robotica (spesso sin/cos variano).
-        # Usiamo: q=0 verticale giù.
         M11 = (m1 + m2) * l1**2 + m2 * l2**2 + 2 * m2 * l1 * l2 * cs.cos(q2)
         M12 = m2 * l2**2 + m2 * l1 * l2 * cs.cos(q2)
         M21 = M12
@@ -86,7 +82,6 @@ class DoublePendulumModel:
 
         # --- DINAMICA INVERSA ---
         # tau = M*ddq + C*dq + G + F
-        # Usiamo mtimes (@) per moltiplicazione matrice-vettore
         tau = M @ ddq + C @ dq + G + F
         
         # Funzione inv_dyn: [state, ddq] -> [tau]
@@ -95,7 +90,7 @@ class DoublePendulumModel:
 
         # --- DINAMICA FORWARD ---
         # Serve per integrare lo stato: x_next = x + f(x, u) * dt
-        # Poiché il controllo u nel tuo OCP è già ddq (accelerazione),
+        # Poiché il controllo u è già ddq (accelerazione),
         # la funzione f è banale: dx = [dq, ddq]
         rhs = cs.vertcat(dq, ddq)
         f = cs.Function('f', [state, ddq], [rhs])

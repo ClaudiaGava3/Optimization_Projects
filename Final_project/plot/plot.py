@@ -17,7 +17,7 @@ def animate_pendulum(time_array, q_array, length=1.0, dt=0.05):
     ax.set_ylim(-limit, limit)
     ax.set_aspect('equal')
     ax.grid(True)
-    ax.set_title(f"Ottimizzazione Pendolo (N={len(time_array)})")
+    ax.set_title(f"Ottimizzazione Pendolo")
 
     # Elementi grafici: Asta (linea) e Massa (punto)
     line, = ax.plot([], [], 'o-', lw=4, color='blue', markersize=10) # 'o-' fa linea e punto finale
@@ -55,7 +55,7 @@ def animate_pendulum(time_array, q_array, length=1.0, dt=0.05):
         time_text.set_text(f'Time = {time_array[frame]:.2f}s')
         return line, trace, time_text
 
-    # Crea l'animazione
+    # Creo l'animazione
     # interval è in millisecondi. dt * 1000 serve per farla andare a tempo reale.
     ani = FuncAnimation(fig, update, frames=len(time_array),
                         init_func=init, interval=dt*1000, blit=True)
@@ -77,16 +77,15 @@ def animate_double_pendulum(time_array, q_array, l1=1.0, l2=1.0, dt=0.05):
     print("Generazione animazione Doppio Pendolo...")
     fig, ax = plt.subplots(figsize=(6, 6))
     
-    # Imposta i limiti (somma delle lunghezze + margine)
+    # Imposto i limiti (somma delle lunghezze + margine)
     limit = (l1 + l2) * 1.2
     ax.set_xlim(-limit, limit)
     ax.set_ylim(-limit, limit)
     ax.set_aspect('equal')
     ax.grid(True)
-    ax.set_title(f"Doppio Pendolo (N={len(time_array)})")
+    ax.set_title(f"Ottimizzazione Doppio Pendolo")
 
     # --- Elementi Grafici ---
-    # 'o-' crea una linea con pallini ai vertici (Origine -> Gomito -> Punta)
     line, = ax.plot([], [], 'o-', lw=3, color='blue', markersize=8) 
     
     # Scia della punta finale (End-Effector)
@@ -107,30 +106,21 @@ def animate_double_pendulum(time_array, q_array, l1=1.0, l2=1.0, dt=0.05):
         return line, trace, time_text
 
     def update(frame):
-        # 1. Estrai gli angoli al frame corrente
-        # Assumiamo che q_array sia shape (2, N_samples)
+        
         q1 = q_array[0, frame]
         q2 = q_array[1, frame]
         
-        # 2. Cinematica Diretta (q=0 è GIÙ)
-        # Link 1 (Gomito)
         x1 = l1 * np.sin(q1)
         y1 = -l1 * np.cos(q1)
         
-        # Link 2 (Punta)
-        # Nota: l'angolo assoluto del secondo link è (q1 + q2)
         x2 = x1 + l2 * np.sin(q1 + q2)
         y2 = y1 - l2 * np.cos(q1 + q2)
 
-        # 3. Aggiorna Grafica
-        # Passiamo le liste [x_start, x_mid, x_end] e [y_start, y_mid, y_end]
         line.set_data([0, x1, x2], [0, y1, y2])
         
-        # Aggiorna scia (traccia solo la punta x2, y2)
         x_hist.append(x2)
         y_hist.append(y2)
         
-        # Opzionale: tieni solo gli ultimi 100 punti per non appesantire
         if len(x_hist) > 200:
             x_hist.pop(0)
             y_hist.pop(0)
@@ -157,7 +147,7 @@ def plot_initial_states(X_init, robot_name="Robot"):
         plt.xlabel("Posizione q [rad]")
         plt.ylabel("Velocità dq [rad/s]")
     elif nx >= 4:
-        # Colora in base alla velocità media dei due giunti
+        # Coloro in base alla velocità media dei due giunti
         avg_vel = np.mean(np.abs(X_init[:, 2:]), axis=1)
         plt.scatter(X_init[:, 0], X_init[:, 1], c=avg_vel, cmap='viridis', alpha=0.7, edgecolors='k')
         plt.colorbar(label='Magnitudo Velocità Media')
@@ -168,8 +158,8 @@ def plot_initial_states(X_init, robot_name="Robot"):
     plt.grid(True)
     plt.show()
 
-# --- 4. FUNZIONE MAIN PLOTS (Logica corretta) ---
-def PLOTS(DO_PLOTS, success_count, last_sol, N, dt, X, U, nq, nx, inv_dyn, q_des, tau_max, tau_min, robot, initial_conditions):
+# --- 4. FUNZIONE MAIN PLOTS ---
+def PLOTS(DO_PLOTS, success_count, last_sol, N, dt, X, U, nq, nx, inv_dyn, q_des, tau_max, tau_min, v_max, v_min, robot, initial_conditions):
     
     # Esegui solo se richiesto e se c'è almeno una soluzione
     if DO_PLOTS and success_count > 0:
@@ -207,7 +197,7 @@ def PLOTS(DO_PLOTS, success_count, last_sol, N, dt, X, U, nq, nx, inv_dyn, q_des
         for j in range(nq):
             plt.plot(time, q_sol[j,:], label=f'q_{j+1} (pos)', linewidth=2)
             # Plot target (linea tratteggiata)
-            plt.plot([0, time[-1]], [q_des[j], q_des[j]], '--', label=f'q_{j+1} target')
+            plt.plot([0, time[-1]], [q_des[j], q_des[j]], 'r--', label=f'q_{j+1} target')
         plt.title("Joint Position")
         plt.xlabel('Time [s]'); plt.ylabel('Angle [rad]')
         plt.grid(True); plt.legend()
@@ -216,6 +206,9 @@ def PLOTS(DO_PLOTS, success_count, last_sol, N, dt, X, U, nq, nx, inv_dyn, q_des
         plt.figure(figsize=(10, 6))
         for j in range(nq):
             plt.plot(time, dq_sol[j,:], label=f'dq_{j+1} (vel)', linewidth=2)
+            # Limiti
+            plt.plot([0, time[-1]], [v_max[j], v_max[j]], 'r--', alpha=0.3)
+            plt.plot([0, time[-1]], [v_min[j], v_min[j]], 'r--', alpha=0.3)
         plt.title("Joint Velocity")
         plt.xlabel('Time [s]'); plt.ylabel('Velocity [rad/s]')
         plt.grid(True); plt.legend()

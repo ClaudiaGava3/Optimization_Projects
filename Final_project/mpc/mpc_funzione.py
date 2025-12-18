@@ -6,10 +6,9 @@ import os
 import shutil
 
 # --- IMPORT MODELLI ---
-# Assicuriamoci che i file dei modelli siano nella stessa cartella o nel python path
-from pendolum_model import PendulumModel
-from doublependolum_model import DoublePendulumModel
-from neural_network import NeuralNetwork
+from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
+from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
+from optimal_control.casadi_adam.final_project_.neural_network.neural_network import NeuralNetwork
 
 def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, dt=0.01):
     """
@@ -20,18 +19,18 @@ def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, 
     if robot_type == "single":
         robot = PendulumModel()
         q_des = np.array([np.pi])
-        model_filename = "learned_value_pendulum.pth"
+        model_filename = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/learned_value_pendulum.pth"
     elif robot_type == "double":
         robot = DoublePendulumModel()
         q_des = np.array([np.pi, 0.0])
-        model_filename = "learned_value_double_pendulum.pth"
+        model_filename = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/learned_value_double_pendulum.pth"
     else:
         raise ValueError("robot_type deve essere 'single' o 'double'")
 
     nq = robot.nq
     nx = robot.nx
     
-    # Pesi (IDENTICI al tuo test_mpc.py funzionante)
+    # Pesi
     W_P = 1.0
     W_V = 1e-3
     W_A = 1e-4
@@ -109,8 +108,6 @@ def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, 
         # Dinamica
         opti.subject_to(X[k+1] == X[k] + dt * f_dyn(X[k], U[k]))
         
-        # Vincoli (Opzionali, come nel tuo test_mpc)
-        # opti.subject_to(opti.bounded(-100.0, U[k], 100.0))
     
     # Terminal Cost (SOLO SE RETE ATTIVA)
     if use_network and value_func is not None:
@@ -118,7 +115,7 @@ def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, 
         
     opti.minimize(cost_expr)
     
-    # Opzioni Solver (Coerenti con test_mpc)
+    # Opzioni Solver
     opts = {
         "ipopt.print_level": 0,
         "ipopt.tol": 1e-4,
@@ -170,7 +167,6 @@ def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, 
             vel_val = current_x[nq:]
             
             # Costo quadratico standard per confronto equo tra metodi
-            # (Anche se il metodo neurale ottimizza J_NN, misuriamo la performance fisica reale)
             step_cost = (np.dot(err_pos_val, err_pos_val) + 
                          1e-3 * np.dot(vel_val, vel_val) + 
                          1e-4 * np.dot(u_opt, u_opt)) * dt

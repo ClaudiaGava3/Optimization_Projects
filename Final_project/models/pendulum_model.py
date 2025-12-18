@@ -30,7 +30,7 @@ class PendulumModel:
         # Variabili simboliche
         q = cs.SX.sym('q', self.nq)
         dq = cs.SX.sym('dq', self.nq)
-        ddq = cs.SX.sym('ddq', self.nq) # Qui ddq è l'input U del tuo OCP
+        ddq = cs.SX.sym('ddq', self.nq)
         
         state = cs.vertcat(q, dq)
         
@@ -42,7 +42,7 @@ class PendulumModel:
         inv_dyn = cs.Function('inv_dyn', [state, ddq], [tau])
 
         # --- 2. Dinamica Forward (per l'integrazione dello stato) ---
-        # Dato che nel tuo script U = ddq (accelerazione), la f(x,u) è semplice:
+        # U = ddq (accelerazione)
         # dq_next = dq + ddq * dt
         # q_next  = q  + dq * dt
         # Quindi rhs = [dq, ddq]

@@ -4,11 +4,11 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import copy  # Serve per copiare i pesi migliori (come nel notebook)
-from neural_network import NeuralNetwork
+import copy
+from optimal_control.casadi_adam.final_project_.neural_network.neural_network import NeuralNetwork
 
-#DATASET_NAME = "dataset_pendulum.npz"        # Per il singolo
-DATASET_NAME = "dataset_doublependulum.npz"    # Per il doppio
+DATASET_NAME = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/dataset_pendulum.npz"        # Per il singolo
+#DATASET_NAME = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/dataset_doublependulum.npz"    # Per il doppio
 
 
 # --- PARAMETRI ---
@@ -46,7 +46,7 @@ def get_pendulum_data():
         print(f"--> Rilevato sistema generico (nx={nx})")
         robot_name = "generic"
 
-    # Normalizzazione (Essenziale per il progetto, anche se non c'era nel notebook base)
+    # Normalizzazione
     mean_X = X_tensor.mean(dim=0)
     std_X = X_tensor.std(dim=0); std_X[std_X < 1e-6] = 1.0
     mean_Y = Y_tensor.mean()
@@ -156,7 +156,7 @@ def main():
     # D. Salvataggio
     output_filename = f"learned_value_{robot_name}.pth"
     torch.save({
-        'model_state_dict': best_weights, # Salviamo i pesi migliori!
+        'model_state_dict': best_weights,
         'mean_X': mean_X, 'std_X': std_X,
         'mean_Y': mean_Y, 'std_Y': std_Y,
         'input_size': input_dim,
@@ -198,13 +198,12 @@ def main():
     plt.plot(train_hist_smooth, label="Train Loss (Filt)", color='blue', linewidth=2)
     plt.plot(val_hist_smooth, label="Test Loss (Filt)", color='orange', linewidth=2)
     plt.yscale("log")
-    plt.title("Filtered Loss History") # Solo il trend pulito
+    plt.title("Filtered Loss History")
     plt.xlabel("Epochs")
     plt.legend()
     plt.grid(True)
 
     # Grafico Predizione vs Realtà (SCATTER PLOT) ---
-    # Questo è quello coi puntini e la linea ideale
     plt.subplot(2, 2, 3)
     net.eval()
     with torch.no_grad():
