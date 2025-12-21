@@ -1,18 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from optimal_control.casadi_adam.final_project_.mpc.mpc_funzione import run_mpc_simulation
+from final_project_.mpc.mpc_funzione import run_mpc_simulation
 
 # --- IMPORT MODELLI ---
 try:
-    from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
-    from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
+    from final_project_.models.pendulum_model import PendulumModel
+    from final_project_.models.doublependulum_model import DoublePendulumModel
 except ImportError:
     print("ERRORE: Modelli non trovati.")
     exit()
 
 # --- CONFIGURAZIONE ---
-ROBOT_TYPE = "double"  # "double" o "single"
-M_SHORT = 20           # Orizzonte Corto
+ROBOT_TYPE = "single"  # "double" o "single"
+#M_SHORT = 20           # Orizzonte Corto
+M_SHORT = 5 
 N_LONG = 100           # Orizzonte Lungo
 SIM_STEPS = 300        # Tempo simulazione
 DT = 0.01
@@ -69,7 +70,6 @@ for j in range(nq):
     ax.axhline(q_target[j], color='gray', linestyle='-.', label='Target')
     
     ax.set_ylabel(f'Pos q_{j+1} [rad]')
-    ax.set_title(f'Joint {j+1} Position')
     ax.grid(True)
     if j == 0: ax.legend(loc='lower right')
 
@@ -84,7 +84,7 @@ for j in range(nq):
     ax.grid(True)
 
 # --- PLOT COPPIE ---
-# u è più corto di x di 1, accorciamo time
+# u è più corto di x di 1, accorcio time
 t_u = time[:-1]
 for j in range(nq):
     ax = axs[2, j]
@@ -96,7 +96,7 @@ for j in range(nq):
     ax.set_xlabel('Time [s]')
     ax.grid(True)
 
-plt.suptitle(f"Confronto Traiettorie: Swing-Up ({ROBOT_TYPE})", fontsize=16)
+plt.suptitle(f"Trajectory Comparison: Swing-Up ({ROBOT_TYPE})", fontsize=16)
 plt.tight_layout()
 filename = f"trajectory_comparison_{ROBOT_TYPE}.png"
 plt.savefig(filename)

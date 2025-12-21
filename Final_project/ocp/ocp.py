@@ -6,21 +6,20 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import os
 
-# --- IMPORTO MODELLI ---
-from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
-from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
-from optimal_control.casadi_adam.final_project_.prof.pendulum import Pendulum
+try:
+    from final_project_.ocp.random_generator import generate_random_initial_states
+    from final_project_.models.pendulum_model import PendulumModel
+    from final_project_.models.doublependulum_model import DoublePendulumModel
+    from final_project_.plot.plot import PLOTS
+except ImportError:
+    print("ERRORE: file non trovati.")
+    exit()
 
-# --- IMPORTO GENERATORE RANDOMICO PER STATI INIZIALI ---
-from optimal_control.casadi_adam.final_project_.ocp.random_generator import generate_random_initial_states
-
-# --- IMPORTO PLOT ---
-from optimal_control.casadi_adam.final_project_.plot.plot import PLOTS
 
 time_start = clock()
 print("Load robot model")
-#robot = PendulumModel()
-robot = DoublePendulumModel()
+robot = PendulumModel()
+#robot = DoublePendulumModel()
 
 nq = robot.nq
 nx = robot.nx

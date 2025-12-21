@@ -1,21 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from optimal_control.casadi_adam.final_project_.mpc.mpc_funzione import run_mpc_simulation
+from final_project_.mpc.mpc_funzione import run_mpc_simulation
 from time import time as clock
 
 # --- IMPORTO IL GENERATORE RANDOM ---
 try:
-    from optimal_control.casadi_adam.final_project_.ocp.random_generator import generate_random_initial_states
-    from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
-    from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
+    from final_project_.ocp.random_generator import generate_random_initial_states
+    from final_project_.models.pendulum_model import PendulumModel
+    from final_project_.models.doublependulum_model import DoublePendulumModel
 except ImportError:
     print("ERRORE: random_generator.py o modelli non trovati.")
     exit()
 
 # --- CONFIGURAZIONE ---
 ROBOT_TYPE = "single"  # "single" o "double"
-N_TRIALS = 100          # Numero prove random
-M_SHORT = 5          # Orizzonte Corto (quello usato con successo)
+N_TRIALS = 100         # Numero prove random
+M_SHORT = 5         # Orizzonte Corto (quello usato con successo)
 #M_SHORT = 20
 N_LONG = 100           # Orizzonte Lungo
 SIM_STEPS = 300        # Durata simulazione (step) per dare tempo di arrivare
@@ -112,7 +112,7 @@ plt.subplot(1, 2, 1)
 rates = [succ_rates[k] for k in keys]
 bars = plt.bar(keys, rates, color=['gray', 'orange', 'green'], alpha=0.7)
 plt.ylabel('Success Rate (%)')
-plt.title(f'Affidabilità ({ROBOT_TYPE})')
+plt.title(f'Reliability ({ROBOT_TYPE})')
 plt.ylim(0, 105)
 plt.grid(axis='y', linestyle='--', alpha=0.5)
 # Aggiungo etichette sulle barre
@@ -126,7 +126,7 @@ data_to_plot = [costs['A'], costs['B'], costs['C']]
 plt.boxplot(data_to_plot, labels=keys, patch_artist=True, 
             boxprops=dict(facecolor="lightblue"))
 plt.ylabel('Total Cost (Accumulated)')
-plt.title('Distribuzione dei Costi')
+plt.title('Cost Distribution')
 plt.grid(linestyle='--', alpha=0.5)
 plt.yscale('log') # Log scale perché i costi di fallimento possono essere enormi
 
@@ -139,7 +139,7 @@ plt.figure(figsize=(6, 4))
 mse_data = [errors_mse['A'], errors_mse['B'], errors_mse['C']]
 plt.boxplot(mse_data, labels=keys, patch_artist=True,
             boxprops=dict(facecolor="lightgreen"))
-plt.title("Errore Quadratico Medio (Tracking Accuracy)")
+plt.title("Mean Square Error (Tracking Accuracy)")
 plt.ylabel("MSE (Log Scale)")
 plt.yscale('log')
 plt.grid(linestyle='--', alpha=0.5)
@@ -151,8 +151,8 @@ plt.figure(figsize=(6, 5))
 data_times = [times['A'], times['B'], times['C']]
 plt.boxplot(data_times, labels=keys, patch_artist=True, 
             boxprops=dict(facecolor="salmon"))
-plt.ylabel('Time per Simulation [s]')
-plt.title('Efficienza Computazionale')
+plt.ylabel('Simulation Time [s]')
+plt.title('Computational Efficiency')
 plt.grid(linestyle='--', alpha=0.5)
 plt.tight_layout()
 plt.show()

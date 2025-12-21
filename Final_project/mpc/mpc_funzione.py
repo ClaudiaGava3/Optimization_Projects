@@ -6,9 +6,9 @@ import os
 import shutil
 
 # --- IMPORT MODELLI ---
-from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
-from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
-from optimal_control.casadi_adam.final_project_.neural_network.neural_network import NeuralNetwork
+from final_project_.models.pendulum_model import PendulumModel
+from final_project_.models.doublependulum_model import DoublePendulumModel
+from final_project_.neural_network.neural_network import NeuralNetwork
 
 def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, dt=0.01):
     """
@@ -19,11 +19,11 @@ def run_mpc_simulation(robot_type, horizon, use_network, x_init, sim_steps=100, 
     if robot_type == "single":
         robot = PendulumModel()
         q_des = np.array([np.pi])
-        model_filename = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/learned_value_pendulum.pth"
+        model_filename = "/home/claudia/orc/final_project_/dataset/learned_value_pendulum.pth"
     elif robot_type == "double":
         robot = DoublePendulumModel()
         q_des = np.array([np.pi, 0.0])
-        model_filename = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/learned_value_double_pendulum.pth"
+        model_filename = "/home/claudia/orc/final_project_/dataset/learned_value_double_pendulum.pth"
     else:
         raise ValueError("robot_type deve essere 'single' o 'double'")
 

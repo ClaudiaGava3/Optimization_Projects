@@ -7,15 +7,15 @@ import os
 import shutil
 
 # --- IMPORT FILES ---
-from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
-from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
-from optimal_control.casadi_adam.final_project_.neural_network.neural_network import NeuralNetwork
-from optimal_control.casadi_adam.final_project_.ocp.random_generator import generate_random_initial_states
-from optimal_control.casadi_adam.final_project_.plot.plot import animate_pendulum, animate_double_pendulum
+from final_project_.models.pendulum_model import PendulumModel
+from final_project_.models.doublependulum_model import DoublePendulumModel
+from final_project_.neural_network.neural_network import NeuralNetwork
+from final_project_.ocp.random_generator import generate_random_initial_states
+from final_project_.plot.plot import animate_pendulum, animate_double_pendulum
 
 # --- CONFIGURAZIONE ---
-#MODEL_FILE = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/learned_value_pendulum.pth"       
-MODEL_FILE = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/learned_value_double_pendulum.pth" 
+#MODEL_FILE = "/home/claudia/orc/final_project_/dataset/learned_value_pendulum.pth"       
+MODEL_FILE = "/home/claudia/orc/final_project_/dataset/learned_value_double_pendulum.pth" 
 
 DT = 0.01
 M = 20      #per pendolo semplice arriva bene anche a 10, per quello doppio già a 15 da più errore

@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import time
 
 # --- IMPORTAZIONI DAI TUOI FILE ESISTENTI ---
-from optimal_control.casadi_adam.final_project_.mpc.mpc_funzione import run_mpc_simulation
-from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
-from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
-from optimal_control.casadi_adam.final_project_.ocp.random_generator import generate_random_initial_states
+from final_project_.mpc.mpc_funzione import run_mpc_simulation
+from final_project_.models.pendulum_model import PendulumModel
+from final_project_.models.doublependulum_model import DoublePendulumModel
+from final_project_.ocp.random_generator import generate_random_initial_states
 
 # robot da testare: "single" o "double"
-ROBOT_TYPE = "double" 
+ROBOT_TYPE = "single" 
 
 # Numero di prove casuali (più alto è, più la statistica è affidabile)
 N_TRIALS = 100

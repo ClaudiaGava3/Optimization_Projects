@@ -4,11 +4,11 @@ import torch
 import os
 
 # --- IMPORTAZIONI FILE ---
-from optimal_control.casadi_adam.final_project_.mpc.mpc_funzione import run_mpc_simulation
-from optimal_control.casadi_adam.final_project_.models.pendulum_model import PendulumModel
-from optimal_control.casadi_adam.final_project_.models.doublependulum_model import DoublePendulumModel
-from optimal_control.casadi_adam.final_project_.ocp.random_generator import generate_random_initial_states
-from optimal_control.casadi_adam.final_project_.plot.plot import animate_pendulum, animate_double_pendulum
+from final_project_.mpc.mpc_funzione import run_mpc_simulation
+from final_project_.models.pendulum_model import PendulumModel
+from final_project_.models.doublependulum_model import DoublePendulumModel
+from final_project_.ocp.random_generator import generate_random_initial_states
+from final_project_.plot.plot import animate_pendulum, animate_double_pendulum
 
 # --- CONFIGURAZIONE ---
 # Robot "single" o "double"

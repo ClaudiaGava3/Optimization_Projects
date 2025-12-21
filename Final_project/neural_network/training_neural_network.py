@@ -5,10 +5,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import copy
-from optimal_control.casadi_adam.final_project_.neural_network.neural_network import NeuralNetwork
+import time
 
-DATASET_NAME = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/dataset_pendulum.npz"        # Per il singolo
-#DATASET_NAME = "/home/claudia/orc/optimal_control/casadi_adam/final_project_/dataset/dataset_doublependulum.npz"    # Per il doppio
+try:
+    from final_project_.neural_network.neural_network import NeuralNetwork
+except ImportError:
+    print("ERRORE: file non trovati")
+    exit()
+
+DATASET_NAME = "/home/claudia/orc/final_project_/dataset/dataset_pendulum.npz"        # Per il singolo
+#DATASET_NAME = "/home/claudia/orc/final_project_/dataset/dataset_doublependulum.npz"    # Per il doppio
 
 
 # --- PARAMETRI ---
@@ -143,11 +149,19 @@ def main():
     net, optimizer, loss_func = create_network_and_optimizer(input_dim, LEARNING_RATE)
     
     # C. Lancia il Training
+    start_time = time.time()
     train_hist, val_hist, best_weights = train_network(
         net, optimizer, loss_func, 
         X_train, Y_train, X_test, Y_test, 
         EPOCHS, BATCH_SIZE
     )
+    end_time = time.time()
+    training_duration = end_time - start_time
+
+    print("-" * 30)
+    print(f"TRAINING COMPLETATO.")
+    print(f"Tempo impiegato: {training_duration:.2f} secondi ({training_duration/60:.2f} minuti)")
+    print("-" * 30)
 
     # Carico i pesi migliori nella rete prima di salvare/plottare
     net.load_state_dict(best_weights)
