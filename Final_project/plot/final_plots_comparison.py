@@ -98,7 +98,7 @@ for j in range(nq):
 
 plt.suptitle(f"Trajectory Comparison: Swing-Up ({ROBOT_TYPE})", fontsize=16)
 plt.tight_layout()
-filename = f"trajectory_comparison_{ROBOT_TYPE}.png"
-plt.savefig(filename)
-print(f"Grafico salvato come {filename}")
+#filename = f"trajectory_comparison_{ROBOT_TYPE}.png"
+#plt.savefig(filename)
+#print(f"Grafico salvato come {filename}")
 plt.show()
