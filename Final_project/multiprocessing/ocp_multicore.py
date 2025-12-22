@@ -18,7 +18,7 @@ except ImportError:
 
 # --- CONFIGURAZIONE ---
 ROBOT_TYPE = "single"  # "single" o "double"
-N_SAMPLES = 100000        # Anche 10000 o 100000 per il dataset col multicore
+N_SAMPLES = 10000        # Anche 10000 o 100000 per il dataset col multicore
 DO_PLOTS = True
 
 # --- FUNZIONE WORKER (Esegue 1 simulazione isolata) ---
