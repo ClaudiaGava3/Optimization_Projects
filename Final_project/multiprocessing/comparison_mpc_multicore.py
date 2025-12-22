@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from time import time as clock
 import multiprocessing
 from multiprocessing import Pool
+from tqdm import tqdm 
 
 from final_project_.mpc.mpc_funzione import run_mpc_simulation
 
@@ -16,13 +17,14 @@ except ImportError:
     exit()
 
 # --- CONFIGURAZIONE ---
-ROBOT_TYPE = "double"  # "single" o "double"
+ROBOT_TYPE = "single"  # "single" o "double"
 N_TRIALS = 100         # Numero prove random
-M_SHORT = 20           # Orizzonte Corto
+M_SHORT = 5            # Orizzonte Corto per single
+#M_SHORT = 20          # Orizzonte Corto per double
 N_LONG = 100           # Orizzonte Lungo
 SIM_STEPS = 300        
 
-# --- FUNZIONE WORKER (Esegue i 3 casi per uno stato) ---
+# --- FUNZIONE WORKER ---
 def test_single_scenario(x0):
     # CASO A
     t0 = clock()
@@ -57,7 +59,8 @@ if __name__ == "__main__":
     t_start_all = clock()
     
     with Pool() as pool:
-        results = pool.map(test_single_scenario, initial_states)
+        # Aggiungo la barra di progresso
+        results = list(tqdm(pool.imap(test_single_scenario, initial_states), total=N_TRIALS))
     
     print(f"Simulazioni finite in {clock()-t_start_all:.2f}s. Elaborazione dati...")
 
@@ -75,7 +78,7 @@ if __name__ == "__main__":
         # C
         costs['C'].append(res_C[0]); errors_mse['C'].append(res_C[1]); success_flags['C'].append(res_C[2]); times['C'].append(res_C[3])
 
-    # --- ANALISI DATI E PLOTS ORIGINALI ---
+    # --- ANALISI DATI E PLOTS ---
     
     print("\n" + "="*40)
     print("   REPORT FINALE")

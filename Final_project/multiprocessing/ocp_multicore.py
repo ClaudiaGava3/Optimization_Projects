@@ -4,6 +4,7 @@ import casadi as cs
 from time import time as clock
 import multiprocessing
 from multiprocessing import Pool
+from tqdm import tqdm #pip install tqdm
 import os
 
 try:
@@ -17,8 +18,8 @@ except ImportError:
 
 # --- CONFIGURAZIONE ---
 ROBOT_TYPE = "single"  # "single" o "double"
-N_SAMPLES = 100        # Metti 10000 o 100000 per il dataset finale
-DO_PLOTS = True        # Metti False quando generi dataset massivi
+N_SAMPLES = 100000        # Anche 10000 o 100000 per il dataset col multicore
+DO_PLOTS = True
 
 # --- FUNZIONE WORKER (Esegue 1 simulazione isolata) ---
 def solve_single_ocp(x_current):
@@ -99,7 +100,8 @@ if __name__ == "__main__":
 
     # Pool gestisce i processi
     with Pool() as pool:
-        results = pool.map(solve_single_ocp, initial_conditions)
+        # pool.imap restituisce i risultati uno alla volta, tqdm li conta
+        results = list(tqdm(pool.imap(solve_single_ocp, initial_conditions), total=N_SAMPLES))
 
     # Raccolta risultati
     for x_in, J_out, success in results:
@@ -121,15 +123,12 @@ if __name__ == "__main__":
     np.savez(filename, inputs=data_x, targets=data_y)
     print(f"Dati salvati in '{filename}'.")
 
-    # --- 4. GESTIONE PLOTS (Se richiesto) ---
+    # --- 4. GESTIONE PLOTS ---
     if DO_PLOTS and len(dataset_inputs) > 0:
         print("\n--- ESECUZIONE SINGOLA PER IL PLOT ---")
         print("Ricalcolo l'ultimo caso per generare gli oggetti grafici...")
         
-        # NOTA: Per far funzionare la tua funzione PLOTS, dobbiamo ricreare 
-        # l'ambiente CasADi (X, U, sol) nel main thread.
-        
-        # --- Copia della definizione del problema (Identica al worker) ---
+        # --- Copia della definizione del problema ---
         nq, nx = master_robot.nq, master_robot.nx
         dt, N = 0.01, 100
         opti = cs.Opti()
@@ -177,7 +176,7 @@ if __name__ == "__main__":
             tau_min = (-master_robot.effortLimit).tolist()
             tau_max = master_robot.effortLimit.tolist()
             
-            # CHIAMATA ALLA TUA FUNZIONE ORIGINALE
+            # CHIAMATA ALLA FUNZIONE ORIGINALE
             print("Avvio plotting...")
             PLOTS(DO_PLOTS, success_count, last_sol, N, dt, X, U, nq, nx, inv_dyn, q_des, tau_max, tau_min, v_max, v_min, master_robot, initial_conditions)
             

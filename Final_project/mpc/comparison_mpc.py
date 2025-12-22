@@ -15,8 +15,8 @@ except ImportError:
 # --- CONFIGURAZIONE ---
 ROBOT_TYPE = "double"  # "single" o "double"
 N_TRIALS = 100         # Numero prove random
-#M_SHORT = 5         # Orizzonte Corto (quello usato con successo)
-M_SHORT = 20
+#M_SHORT = 5           # Orizzonte Corto per single (quello usato con successo)
+M_SHORT = 20           # Orizzonte Corto per double
 N_LONG = 100           # Orizzonte Lungo
 SIM_STEPS = 300        # Durata simulazione (step) per dare tempo di arrivare
 

@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import multiprocessing
 from multiprocessing import Pool
+from tqdm import tqdm
 
 from final_project_.mpc.mpc_funzione import run_mpc_simulation
 from final_project_.models.pendulum_model import PendulumModel
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         
         # Esecuzione parallela dei trials
         with Pool() as pool:
-            results = pool.map(run_single_trial, worker_args)
+            results = list(tqdm(pool.imap(run_single_trial, worker_args), total=N_TRIALS, desc=f"Progress M={M}"))
         
         # results è una lista di True/False
         current_successes = sum(results)
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     total_end = time.time()
     print(f"\nTest completato in {(total_end - total_start):.1f} secondi.")
 
-    # --- 3. RISULTATI E GRAFICI (Originali) ---
+    # --- 3. RISULTATI E GRAFICI ---
 
     rates = [(success_counts[m] / N_TRIALS) * 100 for m in M_VALUES]
     labels = [str(m) for m in M_VALUES]
